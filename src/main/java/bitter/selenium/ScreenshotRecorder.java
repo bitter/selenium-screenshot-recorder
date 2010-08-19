@@ -15,7 +15,6 @@
  */
 package bitter.selenium;
 
-import java.io.File;
 import java.io.FilenameFilter;
 import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -23,6 +22,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import com.thoughtworks.selenium.CommandProcessor;
+
+import de.schlichtherle.io.File;
 
 public class ScreenshotRecorder {
 
@@ -59,13 +60,34 @@ public class ScreenshotRecorder {
     private File _screenshotDirectory;
     private final int _maxFileNameLength;
 
+    /**
+     * Creates a new screenshot recorder. Will call
+     * {@link #ScreenshotRecorder(String, String, int)} with
+     * {@link #DEFAULT_MAX_FILENAME_LENGTH}
+     *
+     * @param directory
+     *            base directory for all tests.
+     * @param testName
+     *            the name of the test, a director with this name will be
+     *            created in <code>directory</code>
+     */
     public ScreenshotRecorder(String directory, String testName) {
         this(directory, testName, DEFAULT_MAX_FILENAME_LENGTH);
     }
 
-    public ScreenshotRecorder(String directory, String testName,
-            int maxFileNameLength) {
-        _screenshotDirectory = new File(directory, testName).getAbsoluteFile();
+    /**
+     * Creates a new screenshot recorder.
+     *
+     * @param directory
+     *            base directory for all tests.
+     * @param testName
+     *            the name of the test, a director with this name will be
+     *            created in <code>directory</code>
+     * @param maxFileNameLength
+     *            The maximum file name length excluding file suffix (.png).
+     */
+    public ScreenshotRecorder(String directory, String testName, int maxFileNameLength) {
+        _screenshotDirectory = new File(directory, testName);
         _maxFileNameLength = maxFileNameLength;
     }
 
@@ -79,7 +101,7 @@ public class ScreenshotRecorder {
      *            though it might be trimmed to fit the maxFileNameLegth.
      * @return The file name of the generated screenshot.
      */
-    public File recordScreenshot(CommandProcessor cp, String name) {
+    public java.io.File recordScreenshot(CommandProcessor cp, String name) {
         File file = generateScreenshotFileName(name);
         try {
             cp.doCommand("captureEntirePageScreenshot", new String[] {
@@ -102,9 +124,9 @@ public class ScreenshotRecorder {
      */
     public File packageRecordedScreenshots() throws IOException {
         if (_screenshotDirectory.exists()) {
-            File zipFile = new File(_screenshotDirectory + ".zip");
-            new de.schlichtherle.io.File(_screenshotDirectory)
-                    .copyAllTo(zipFile);
+            File zipFile = new File(_screenshotDirectory.getAbsolutePath() + ".zip");
+            zipFile.copyAllFrom(_screenshotDirectory);
+            return zipFile;
         }
         return null;
     }
@@ -119,8 +141,7 @@ public class ScreenshotRecorder {
      */
     public boolean deleteRecordedScreenshots() throws IOException {
         if (_screenshotDirectory.exists()) {
-            for (String name : _screenshotDirectory
-                    .list(PNGFileNameFilter.INSTANCE)) {
+            for (String name : _screenshotDirectory.list(PNGFileNameFilter.INSTANCE)) {
                 File imageFile = new File(_screenshotDirectory, name);
                 if (!imageFile.delete()) {
                     return false;
@@ -134,8 +155,7 @@ public class ScreenshotRecorder {
     // ---------------------------------------------------------
     // Internal stuff
     File generateScreenshotFileName(final String name) {
-        String fileName = String.format("%s-%s.png", ScreenshotCounter
-                .incrementAndGet(), name);
+        String fileName = String.format("%s-%s", ScreenshotCounter.incrementAndGet(), name);
         fileName = fileName.replace("/", "<slash>");
         fileName = fileName.replace("\\", "<backslash>");
         if (fileName.length() > _maxFileNameLength) {
@@ -144,13 +164,13 @@ public class ScreenshotRecorder {
         if (!_screenshotDirectory.exists()) {
             _screenshotDirectory.mkdirs();
         }
-        return new File(_screenshotDirectory, fileName);
+        return new File(_screenshotDirectory, fileName + ".png");
     }
 
     static class PNGFileNameFilter implements FilenameFilter {
         static PNGFileNameFilter INSTANCE = new PNGFileNameFilter();
 
-        public boolean accept(File dir, String name) {
+        public boolean accept(java.io.File dir, String name) {
             return name.endsWith(".png");
         }
     }
